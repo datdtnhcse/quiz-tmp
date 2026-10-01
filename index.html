@@ -150,7 +150,7 @@ input[type=text],input[type=password]{font-size:16px}
   </div>
 </div>
 
-<div id="ver" style="text-align:center;opacity:.5;font-size:12px;padding:8px">v5</div>
+<div id="ver" style="text-align:center;opacity:.5;font-size:12px;padding:8px">v6</div>
 <script>
 // ===== Auth (client-side only; static site) =====
 const CRED_HASH = "c01764dce99e54bf128c63610975865a850deea7e0ebef6d3e18a823dce79527"; // sha256("user:pass")
@@ -204,8 +204,10 @@ function readParagraph(p){
   }
   // colour of body text (skip the "a." prefix run noise by taking dominant colour)
   const dom = Object.keys(cols).sort((x,y)=>cols[y]-cols[x])[0];
-  return { text: text.replace(/\s+/g," ").trim(), tiers:{ b: total>0&&cnt.b/total>0.6, h: total>0&&cnt.h/total>0.6, c: dom&&dom!=="-"?dom:"" } };
+  return { text: clean(text).replace(/\s+/g," ").trim(), tiers:{ b: total>0&&cnt.b/total>0.6, h: total>0&&cnt.h/total>0.6, c: dom&&dom!=="-"?dom:"" } };
 }
+const fold = t => t.normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[đĐÐð]/g,"d").toLowerCase();
+const clean = t => t.normalize("NFC").replace(/[​-‍﻿­]/g,"").replace(/[  -  　]/g," ");
 const reQ   = /^(?:câu|cau)\s*(?:hỏi\s*)?\d+\s*[:.)\-–]?\s*/i;
 const reOpt = /^\(?([a-hA-H])\s*[\.\)]\s*(.*)$/;
 const reAns = /^(?:đáp\s*án|dap\s*an|đ\/a|đa)\s*(?:đúng)?\s*[:\-–]?\s*(.*)$/i;
@@ -217,9 +219,11 @@ function parseParagraphs(paras){
   for(const {text,tiers} of paras){
     if(!text) continue;
     let m;
-    if(reQ.test(text)){ push(); cur={q:text.replace(reQ,""),opts:[],marks:[],ans:null}; continue; }
+    if(/^(cau|question)\s*(hoi\s*)?\d+/.test(fold(text))){ push(); cur={q:text.replace(/^\S+\s*(?:\S+\s*)?(?=\d)\d+\s*[:.)\-–]?\s*/,""),opts:[],marks:[],ans:null}; continue; }
     if(!cur) continue;
-    if((m=text.match(reAns)) && cur.opts.length){ cur.ans = m[1].trim(); continue; }
+    if(cur.opts.length && /^(dap\s*an|d\s*\/\s*a|da\s*:)/.test(fold(text))){
+      const k=text.search(/[:：\-–]/);
+      cur.ans = (k>=0 ? text.slice(k+1) : text.replace(/^\S+\s*\S*\s*/,"")).trim(); continue; }
     if(cur.opts.length===0 && !cur.q){ cur.q = text; continue; }
     if((m=text.match(reOpt))){ cur.opts.push(m[2].trim()); cur.marks.push(tiers); continue; }
     // line without letter
@@ -297,6 +301,7 @@ async function importFiles(files){
       const qs=await parseDocx(f);
       if(!qs.length){ warns.push(`${f.name}: không tìm thấy câu hỏi nào (cần dạng "Câu 1: ..." và đáp án a. b. c. ...)`); continue; }
       const noAns=qs.filter(q=>q.correct<0).length;
+      if(noAns){ const bad=qs.find(q=>q.correct<0); console.log("noans sample",bad); warns.push(`[debug] câu mẫu: "${bad.q.slice(0,50)}" | đáp án đọc được: ${JSON.stringify(bad.ans)} | ${bad.opts.length} lựa chọn: ${bad.opts.map(o=>o.slice(0,25)).join(" / ")}`); }
       if(noAns) warns.push(`${f.name}: ${noAns}/${qs.length} câu không xác định được đáp án đúng (các câu này sẽ bị bỏ qua khi chơi).`);
       sets=sets.filter(s=>s.name!==f.name); sets.push({name:f.name,qs,on:true});
     }catch(e){ warns.push(`${f.name}: lỗi đọc file (${e.message})`); }
