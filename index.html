@@ -146,13 +146,13 @@ input[type=text],input[type=password]{font-size:1.0rem}
   <div id="rPct" style="font-size:1.25rem;font-weight:700"></div>
   <div class="rev" id="rRev"></div>
   <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
-    <button class="btn go" id="retryWrong">Làm lại câu sai</button>
+    <button class="btn go" id="retryWrong">🔁 Làm lại câu sai</button>
     <button class="btn ghost" id="again">Chơi lại</button>
     <button class="btn ghost" id="toHome">Về trang chính</button>
   </div>
 </div>
 
-<div id="ver" style="text-align:center;opacity:.5;font-size:.75rem;padding:8px">v10</div>
+<div id="ver" style="text-align:center;opacity:.5;font-size:.75rem;padding:8px">v11</div>
 <script>
 // ===== Auth (client-side only; static site) =====
 const CRED_HASH = "c01764dce99e54bf128c63610975865a850deea7e0ebef6d3e18a823dce79527"; // sha256("user:pass")
@@ -414,6 +414,7 @@ function finish(){
   });
   if(!G.wrong.length) rev.innerHTML='<div style="text-align:center">🎉 Đúng hết!</div>';
   $("retryWrong").classList.toggle("hide",!G.wrong.length);
+  $("retryWrong").textContent="🔁 Làm lại "+G.wrong.length+" câu sai";
 }
 $("start").onclick=()=>startGame(activeQs());
 $("again").onclick=()=>startGame(activeQs());
