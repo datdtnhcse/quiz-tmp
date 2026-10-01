@@ -108,7 +108,7 @@ input[type=text],input[type=password]{font-size:16px}
     <div style="font-size:44px">📄</div>
     <div style="font-weight:800;font-size:20px">Bấm để import file .docx (hoặc kéo thả vào đây)</div>
     <div style="opacity:.8;font-size:14px;margin-top:6px">Chọn được nhiều file. Nhận dạng đáp án: dòng "Đáp án: ..." hoặc đáp án được tô đậm/tô màu.</div>
-    <input type="file" id="file" accept=".docx" multiple class="hide">
+    <input type="file" id="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/octet-stream,*/*" multiple class="hide">
   </div>
   <div class="warn hide" id="importWarn"></div>
   <div class="sets" id="sets"></div>
@@ -150,7 +150,7 @@ input[type=text],input[type=password]{font-size:16px}
   </div>
 </div>
 
-<div id="ver" style="text-align:center;opacity:.5;font-size:12px;padding:8px">v4</div>
+<div id="ver" style="text-align:center;opacity:.5;font-size:12px;padding:8px">v5</div>
 <script>
 // ===== Auth (client-side only; static site) =====
 const CRED_HASH = "c01764dce99e54bf128c63610975865a850deea7e0ebef6d3e18a823dce79527"; // sha256("user:pass")
@@ -252,8 +252,15 @@ function parseParagraphs(paras){
     return { q:q.q, opts:q.opts, correct };
   });
 }
+function readBuf(file){
+  if(file.arrayBuffer) return file.arrayBuffer();
+  return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>rej(r.error||new Error("không đọc được file")); r.readAsArrayBuffer(file); });
+}
 async function parseDocx(file){
-  const zip = await JSZip.loadAsync(await file.arrayBuffer());
+  if(typeof JSZip==="undefined") throw new Error("không tải được thư viện JSZip (kiểm tra mạng rồi tải lại trang)");
+  const buf = await readBuf(file);
+  const zip = await JSZip.loadAsync(buf);
+  if(!zip.file("word/document.xml")) throw new Error("không phải file .docx (file .doc cũ cần lưu lại thành .docx)");
   const xml = await zip.file("word/document.xml").async("string");
   const doc = new DOMParser().parseFromString(xml,"application/xml");
   const paras = [...doc.getElementsByTagNameNS(W,"p")].map(readParagraph);
@@ -286,8 +293,7 @@ function updateTotal(){
 async function importFiles(files){
   const warns=[];
   for(const f of files){
-    if(!/\.docx$/i.test(f.name)){ warns.push(`${f.name}: chỉ hỗ trợ .docx`); continue; }
-    try{
+        try{
       const qs=await parseDocx(f);
       if(!qs.length){ warns.push(`${f.name}: không tìm thấy câu hỏi nào (cần dạng "Câu 1: ..." và đáp án a. b. c. ...)`); continue; }
       const noAns=qs.filter(q=>q.correct<0).length;
