@@ -152,7 +152,7 @@ input[type=text],input[type=password]{font-size:1.0rem}
   </div>
 </div>
 
-<div id="ver" style="text-align:center;opacity:.5;font-size:.75rem;padding:8px">v12</div>
+<div id="ver" style="text-align:center;opacity:.5;font-size:.75rem;padding:8px">v13</div>
 <script>
 // ===== Auth (client-side only; static site) =====
 const CRED_HASH = "c01764dce99e54bf128c63610975865a850deea7e0ebef6d3e18a823dce79527"; // sha256("user:pass")
@@ -197,21 +197,26 @@ function runTiers(r){
   return t;
 }
 function readParagraph(p){
-  let text="", total=0; const cnt={b:0,h:0}; const cols={};
+  const lines=[]; let cur=null;
+  const fresh=()=>({text:"",total:0,b:0,h:0,cols:{}});
+  const flush=()=>{ if(!cur) return;
+    const dom = Object.keys(cur.cols).sort((x,y)=>cur.cols[y]-cur.cols[x])[0];
+    lines.push({ text: clean(cur.text).replace(/\s+/g," ").trim(), tiers:{ b: cur.total>0&&cur.b/cur.total>0.6, h: cur.total>0&&cur.h/cur.total>0.6, c: dom&&dom!=="-"?dom:"" } });
+    cur=null; };
   for(const r of p.getElementsByTagNameNS(W,"r")){
-    let t="";
+    const m=runTiers(r);
     for(const n of r.childNodes){
       if(n.namespaceURI!==W) continue;
-      if(n.localName==="t") t+=n.textContent;
-      else if(n.localName==="tab") t+=" ";
-      else if(n.localName==="br") t+=" ";
+      if(n.localName==="br"||n.localName==="cr"){ if(n.getAttributeNS(W,"type")!=="page") flush(); continue; }
+      let t="";
+      if(n.localName==="t") t=n.textContent; else if(n.localName==="tab") t=" "; else continue;
+      if(!cur) cur=fresh();
+      cur.text+=t; const k=t.replace(/\s/g,"").length; if(!k) continue;
+      cur.total+=k; if(m.b) cur.b+=k; if(m.h) cur.h+=k; cur.cols[m.c||"-"]=(cur.cols[m.c||"-"]||0)+k;
     }
-    const k = t.replace(/\s/g,"").length; text+=t; total+=k; if(!k) continue;
-    const m=runTiers(r); if(m.b) cnt.b+=k; if(m.h) cnt.h+=k; cols[m.c||"-"]=(cols[m.c||"-"]||0)+k;
   }
-  // colour of body text (skip the "a." prefix run noise by taking dominant colour)
-  const dom = Object.keys(cols).sort((x,y)=>cols[y]-cols[x])[0];
-  return { text: clean(text).replace(/\s+/g," ").trim(), tiers:{ b: total>0&&cnt.b/total>0.6, h: total>0&&cnt.h/total>0.6, c: dom&&dom!=="-"?dom:"" } };
+  flush();
+  return lines;
 }
 const fold = t => t.normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[đĐÐð]/g,"d").toLowerCase();
 const clean = t => t.normalize("NFC").replace(/[​-‍﻿­]/g,"").replace(/[  -  　]/g," ");
@@ -223,12 +228,16 @@ const norm = s => s.toLowerCase().replace(/[\s\.\,;:]+/g," ").trim();
 function parseParagraphs(paras){
   const qs=[]; let cur=null;
   const push=()=>{ if(cur&&cur.opts.length>=2&&cur.q) qs.push(cur); cur=null; };
-  for(const {text,tiers} of paras){
-    if(!text) continue;
+  paras=paras.filter(x=>x.text);
+  for(let pi=0;pi<paras.length;pi++){
+    const {text,tiers}=paras[pi];
     let m;
     // "1. Nội dung" / "1) Nội dung" (only when not in the middle of a question's options)
     if(/^\d{1,4}\s*[.)]\s*\S/.test(text) && (!cur || cur.opts.length>=2 || cur.ans!==null)){ push(); cur={q:text.replace(/^\d+\s*[.)]\s*/,""),opts:[],marks:[],ans:null}; continue; }
     if(/^(cau|question)\s*(hoi\s*)?\d+/.test(fold(text))){ push(); cur={q:text.replace(/^\S+\s*(?:\S+\s*)?(?=\d)\d+\s*[:.)\-–]?\s*/,""),opts:[],marks:[],ans:null}; continue; }
+    // unnumbered question: a plain line followed by an "a." option line
+    if(!reOpt.test(text) && !/^(dap\s*an)/.test(fold(text)) && paras[pi+1] && /^\(?a\s*[.)]/i.test(paras[pi+1].text) && (!cur || cur.opts.length>=2 || cur.ans!==null)){
+      push(); cur={q:text,opts:[],marks:[],ans:null}; continue; }
     if(!cur) continue;
     if(cur.opts.length && /^(dap\s*an|d\s*\/\s*a|da\s*:)/.test(fold(text))){
       const k=text.search(/[:：\-–]/);
@@ -276,7 +285,7 @@ async function parseDocx(file){
   if(!zip.file("word/document.xml")) throw new Error("không phải file .docx (file .doc cũ cần lưu lại thành .docx)");
   const xml = await zip.file("word/document.xml").async("string");
   const doc = new DOMParser().parseFromString(xml,"application/xml");
-  const paras = [...doc.getElementsByTagNameNS(W,"p")].map(readParagraph);
+  const paras = [...doc.getElementsByTagNameNS(W,"p")].flatMap(readParagraph);
   return parseParagraphs(paras);
 }
 
