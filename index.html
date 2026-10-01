@@ -152,7 +152,7 @@ input[type=text],input[type=password]{font-size:1.0rem}
   </div>
 </div>
 
-<div id="ver" style="text-align:center;opacity:.5;font-size:.75rem;padding:8px">v11</div>
+<div id="ver" style="text-align:center;opacity:.5;font-size:.75rem;padding:8px">v12</div>
 <script>
 // ===== Auth (client-side only; static site) =====
 const CRED_HASH = "c01764dce99e54bf128c63610975865a850deea7e0ebef6d3e18a823dce79527"; // sha256("user:pass")
@@ -226,6 +226,8 @@ function parseParagraphs(paras){
   for(const {text,tiers} of paras){
     if(!text) continue;
     let m;
+    // "1. Nội dung" / "1) Nội dung" (only when not in the middle of a question's options)
+    if(/^\d{1,4}\s*[.)]\s*\S/.test(text) && (!cur || cur.opts.length>=2 || cur.ans!==null)){ push(); cur={q:text.replace(/^\d+\s*[.)]\s*/,""),opts:[],marks:[],ans:null}; continue; }
     if(/^(cau|question)\s*(hoi\s*)?\d+/.test(fold(text))){ push(); cur={q:text.replace(/^\S+\s*(?:\S+\s*)?(?=\d)\d+\s*[:.)\-–]?\s*/,""),opts:[],marks:[],ans:null}; continue; }
     if(!cur) continue;
     if(cur.opts.length && /^(dap\s*an|d\s*\/\s*a|da\s*:)/.test(fold(text))){
