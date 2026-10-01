@@ -118,7 +118,7 @@ input[type=text],input[type=password]{font-size:1.0rem}
     <label class="opt"><input type="checkbox" id="shQ" checked> Xáo trộn thứ tự câu hỏi</label>
     <label class="opt"><input type="checkbox" id="shA"> Xáo trộn thứ tự đáp án</label>
     <label class="opt"><input type="checkbox" id="timerOn"> Giới hạn thời gian mỗi câu
-      <input type="number" id="timerSec" value="60" min="5" max="300" style="width:70px;padding:6px"> giây</label>
+      <input type="number" id="timerSec" value="90" min="5" max="300" style="width:70px;padding:6px"> giây</label>
     <label class="opt">Số câu: <input type="number" id="qCount" min="1" style="width:80px;padding:6px"> <span id="qTotal"></span></label>
     <button class="btn go" id="start" style="font-size:1.25rem">▶ Bắt đầu</button>
   </div>
@@ -152,7 +152,7 @@ input[type=text],input[type=password]{font-size:1.0rem}
   </div>
 </div>
 
-<div id="ver" style="text-align:center;opacity:.5;font-size:.75rem;padding:8px">v9</div>
+<div id="ver" style="text-align:center;opacity:.5;font-size:.75rem;padding:8px">v10</div>
 <script>
 // ===== Auth (client-side only; static site) =====
 const CRED_HASH = "c01764dce99e54bf128c63610975865a850deea7e0ebef6d3e18a823dce79527"; // sha256("user:pass")
@@ -344,7 +344,7 @@ function startGame(pool){
     if($("shA").checked) items=shuffle(items);
     return {q:q.q,items,src:q};
   });
-  G={qs,i:0,score:0,wrong:[],locked:false,limit:$("timerOn").checked?Math.max(5,+$("timerSec").value||60):0};
+  G={qs,i:0,score:0,wrong:[],locked:false,limit:$("timerOn").checked?Math.max(5,+$("timerSec").value||90):0};
   show("game"); showQ();
 }
 function showQ(){
