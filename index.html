@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quiz</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root{--purple:#46178f;--purple2:#6b2fc4;--red:#e21b3c;--blue:#1368ce;--yellow:#d89e00;--green:#26890c;--ink:#1d1d1d}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;font-family:"Montserrat","Segoe UI",system-ui,sans-serif;background:var(--purple);color:#fff;display:flex;flex-direction:column}
+.hide{display:none!important}
+button{font:inherit;cursor:pointer}
+.screen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;gap:16px;width:100%;max-width:1000px;margin:0 auto}
+.logo{font-size:44px;font-weight:900;letter-spacing:1px;text-shadow:0 4px 0 rgba(0,0,0,.25)}
+.card{background:#fff;color:var(--ink);border-radius:8px;padding:24px;width:100%;max-width:420px;display:flex;flex-direction:column;gap:12px;box-shadow:0 6px 0 rgba(0,0,0,.2)}
+.card.wide{max-width:640px}
+input[type=text],input[type=password]{padding:14px;border:2px solid #ccc;border-radius:6px;font:inherit;font-size:16px}
+.btn{background:#333;color:#fff;border:0;border-radius:6px;padding:14px 22px;font-weight:700;font-size:16px;box-shadow:0 4px 0 rgba(0,0,0,.3)}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.3)}
+.btn.go{background:var(--green)}.btn.ghost{background:rgba(255,255,255,.18);color:#fff}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.err{color:var(--red);font-weight:700;min-height:1.2em;font-size:14px}
+.top{display:flex;justify-content:space-between;align-items:center;width:100%;padding:12px 16px;gap:8px}
+.pill{background:rgba(0,0,0,.28);padding:8px 14px;border-radius:6px;font-weight:700}
+label.opt{display:flex;gap:10px;align-items:center;font-weight:600;cursor:pointer}
+.drop{border:3px dashed #fff8;border-radius:10px;padding:34px 20px;text-align:center;width:100%;max-width:640px;cursor:pointer}
+.drop.over{background:#fff2}
+.sets{width:100%;max-width:640px;display:flex;flex-direction:column;gap:8px}
+.set{background:#fff;color:var(--ink);border-radius:6px;padding:10px 14px;display:flex;align-items:center;gap:10px}
+.set b{flex:1;word-break:break-word}.set small{color:#666}
+.set button{background:none;border:0;color:var(--red);font-size:20px}
+.warn{background:#fff3cd;color:#7a5b00;border-radius:6px;padding:8px 12px;font-size:13px;max-width:640px;width:100%}
+/* game */
+#game{padding:0;max-width:none;justify-content:flex-start;gap:0}
+.qbox{flex:0 0 auto;width:100%;display:flex;align-items:center;justify-content:center;padding:18px 20px}
+.qtext{background:#fff;color:var(--ink);font-weight:800;font-size:clamp(18px,3vw,32px);padding:22px 28px;border-radius:8px;max-width:1000px;width:100%;text-align:center;box-shadow:0 5px 0 rgba(0,0,0,.2);white-space:pre-wrap}
+.answers{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px 16px 18px;width:100%;max-width:1100px;margin:0 auto;align-content:stretch}
+.ans{border:0;border-radius:6px;color:#fff;font-weight:700;font-size:clamp(15px,2.2vw,24px);display:flex;align-items:center;gap:14px;padding:16px 18px;text-align:left;min-height:84px;box-shadow:0 5px 0 rgba(0,0,0,.28);transition:opacity .2s,transform .1s}
+.ans:active:not(:disabled){transform:translateY(3px)}
+.ans svg{flex:0 0 38px;width:38px;height:38px;fill:#fff}
+.ans span{flex:1;word-break:break-word}
+.c0{background:var(--red)}.c1{background:var(--blue)}.c2{background:var(--yellow)}.c3{background:var(--green)}.c4{background:#7a3db8}
+.ans.dim{opacity:.35}.ans.right{outline:5px solid #fff}
+.ans .mark{flex:0 0 36px;font-size:30px;font-weight:900;text-align:center}
+.fb{width:100%;text-align:center;font-weight:900;font-size:22px;padding:10px;min-height:56px}
+.fb.ok{background:var(--green)}.fb.bad{background:var(--red)}
+.bar{height:10px;background:#fff;width:100%;transform-origin:left;}
+@media(max-width:640px){.answers{grid-template-columns:1fr}.ans{min-height:64px}}
+.big{font-size:64px;font-weight:900}
+.rev{width:100%;max-width:700px;max-height:42vh;overflow:auto;display:flex;flex-direction:column;gap:8px}
+.rev div{background:#fff;color:var(--ink);border-radius:6px;padding:10px 14px;font-size:14px;text-align:left}
+.rev small{display:block;margin-top:4px}
+.g{color:var(--green)}.r{color:var(--red)}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login" class="screen">
+  <div class="logo">Quiz!</div>
+  <form class="card" id="loginForm">
+    <input type="text" id="u" placeholder="Tên đăng nhập" autocomplete="username" required>
+    <input type="password" id="p" placeholder="Mật khẩu" autocomplete="current-password" required>
+    <div class="err" id="loginErr"></div>
+    <button class="btn go" type="submit">Đăng nhập</button>
+  </form>
+</div>
+
+<!-- HOME -->
+<div id="home" class="screen hide">
+  <div class="top" style="position:absolute;top:0;left:0"><span></span><button class="btn ghost" id="logout">Đăng xuất</button></div>
+  <div class="logo">Quiz!</div>
+  <div class="drop" id="drop">
+    <div style="font-size:44px">📄</div>
+    <div style="font-weight:800;font-size:20px">Bấm để import file .docx (hoặc kéo thả vào đây)</div>
+    <div style="opacity:.8;font-size:14px;margin-top:6px">Chọn được nhiều file. Nhận dạng đáp án: dòng "Đáp án: ..." hoặc đáp án được tô đậm/tô màu.</div>
+    <input type="file" id="file" accept=".docx" multiple class="hide">
+  </div>
+  <div class="warn hide" id="importWarn"></div>
+  <div class="sets" id="sets"></div>
+  <div class="card wide hide" id="opts">
+    <label class="opt"><input type="checkbox" id="shQ" checked> Xáo trộn thứ tự câu hỏi</label>
+    <label class="opt"><input type="checkbox" id="shA"> Xáo trộn thứ tự đáp án</label>
+    <label class="opt"><input type="checkbox" id="timerOn"> Giới hạn thời gian mỗi câu
+      <input type="number" id="timerSec" value="30" min="5" max="300" style="width:70px;padding:6px"> giây</label>
+    <label class="opt">Số câu: <input type="number" id="qCount" min="1" style="width:80px;padding:6px"> <span id="qTotal"></span></label>
+    <button class="btn go" id="start" style="font-size:20px">▶ Bắt đầu</button>
+  </div>
+</div>
+
+<!-- GAME -->
+<div id="game" class="screen hide">
+  <div class="top"><span class="pill" id="gProg"></span><span class="pill" id="gTimer"></span><span class="pill" id="gScore"></span></div>
+  <div class="bar hide" id="gBar"></div>
+  <div class="qbox"><div class="qtext" id="gQ"></div></div>
+  <div class="answers" id="gA"></div>
+  <div class="fb hide" id="gFb"></div>
+  <div style="padding:0 16px 16px;display:flex;gap:10px;justify-content:center">
+    <button class="btn ghost" id="quit">Thoát</button>
+    <button class="btn go hide" id="next">Tiếp theo ▶</button>
+  </div>
+</div>
+
+<!-- RESULT -->
+<div id="result" class="screen hide">
+  <div class="logo">Kết quả</div>
+  <div class="big" id="rScore"></div>
+  <div id="rPct" style="font-size:20px;font-weight:700"></div>
+  <div class="rev" id="rRev"></div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+    <button class="btn go" id="retryWrong">Làm lại câu sai</button>
+    <button class="btn ghost" id="again">Chơi lại</button>
+    <button class="btn ghost" id="toHome">Về trang chính</button>
+  </div>
+</div>
+
+<script>
+// ===== Auth (client-side only; static site) =====
+const CRED_HASH = "90d6872de7c84cfa3b2092a76327b3611cd6942b86dd4b8818730c5f77b0886b"; // sha256("user:pass")
+const $ = id => document.getElementById(id);
+const show = id => { for (const s of ["login","home","game","result"]) $(s).classList.toggle("hide", s!==id); };
+const store = {
+  get(k){ try{ return localStorage.getItem(k) }catch(e){ return null } },
+  set(k,v){ try{ localStorage.setItem(k,v) }catch(e){} },
+  del(k){ try{ localStorage.removeItem(k) }catch(e){} }
+};
+async function sha256(s){
+  const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("");
+}
+$("loginForm").addEventListener("submit", async e=>{
+  e.preventDefault();
+  const h = await sha256($("u").value.trim()+":"+$("p").value);
+  if(h===CRED_HASH){ sessionStorage.setItem("auth",CRED_HASH); enterHome(); }
+  else $("loginErr").textContent = "Sai tên đăng nhập hoặc mật khẩu";
+});
+$("logout").onclick = ()=>{ sessionStorage.removeItem("auth"); show("login"); };
+
+// ===== docx parsing =====
+const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+const LETTERS = "ABCDEFGH";
+function runMarked(r){
+  const rPr = r.getElementsByTagNameNS(W,"rPr")[0]; if(!rPr) return false;
+  const on = (tag)=>{ const el = rPr.getElementsByTagNameNS(W,tag)[0]; if(!el) return false;
+    const v = el.getAttributeNS(W,"val"); return !(v==="0"||v==="false"||v==="none"); };
+  if(on("b")||on("highlight")||on("u")) return true;
+  const shd = rPr.getElementsByTagNameNS(W,"shd")[0];
+  if(shd){ const f=(shd.getAttributeNS(W,"fill")||"").toLowerCase(); if(f && f!=="auto" && f!=="ffffff") return true; }
+  const col = rPr.getElementsByTagNameNS(W,"color")[0];
+  if(col){ const c=(col.getAttributeNS(W,"val")||"").toLowerCase(); if(c && c!=="auto" && c!=="000000" && c!=="ffffff") return true; }
+  return false;
+}
+function readParagraph(p){
+  let text="", markedChars=0, total=0;
+  for(const r of p.getElementsByTagNameNS(W,"r")){
+    let t="";
+    for(const n of r.childNodes){
+      if(n.namespaceURI!==W) continue;
+      if(n.localName==="t") t+=n.textContent;
+      else if(n.localName==="tab") t+=" ";
+      else if(n.localName==="br") t+=" ";
+    }
+    const nonSp = t.replace(/\s/g,"").length;
+    text+=t; total+=nonSp; if(nonSp && runMarked(r)) markedChars+=nonSp;
+  }
+  return { text: text.replace(/\s+/g," ").trim(), marked: total>0 && markedChars/total>0.6 };
+}
+const reQ   = /^(?:câu|cau)\s*(?:hỏi\s*)?\d+\s*[:.)\-–]?\s*/i;
+const reOpt = /^\(?([a-hA-H])\s*[\.\)]\s*(.*)$/;
+const reAns = /^(?:đáp\s*án|dap\s*an|đ\/a|đa)\s*(?:đúng)?\s*[:\-–]?\s*(.*)$/i;
+const norm = s => s.toLowerCase().replace(/[\s\.\,;:]+/g," ").trim();
+
+function parseParagraphs(paras){
+  const qs=[]; let cur=null;
+  const push=()=>{ if(cur&&cur.opts.length>=2&&cur.q) qs.push(cur); cur=null; };
+  for(const {text,marked} of paras){
+    if(!text) continue;
+    let m;
+    if(reQ.test(text)){ push(); cur={q:text.replace(reQ,""),opts:[],marks:[],ans:null}; continue; }
+    if(!cur) continue;
+    if((m=text.match(reAns)) && cur.opts.length){ cur.ans = m[1].trim(); continue; }
+    if(cur.opts.length===0 && !cur.q){ cur.q = text; continue; }
+    if((m=text.match(reOpt))){ cur.opts.push(m[2].trim()); cur.marks.push(marked); cur._lastLetter=m[1]; continue; }
+    // line without letter
+    if(!cur.q){ cur.q=text; continue; }
+    if(cur.opts.length===0 && /[:?]\s*$/.test(cur.q)===false && !marked && text.length>0 && cur.q.length<0){ }
+    // lost-letter option (e.g. auto-numbered) vs. continuation of the question
+    cur.opts.push(text); cur.marks.push(marked);
+  }
+  push();
+  return qs.map(q=>{
+    let correct=-1;
+    if(q.ans){
+      const a=q.ans; const lm=a.match(/^\(?([a-hA-H])\s*(?:[\.\)]|$)/);
+      if(lm){ correct = LETTERS.indexOf(lm[1].toUpperCase()); }
+      if(correct<0||correct>=q.opts.length){
+        correct = q.opts.findIndex(o=>norm(o)===norm(a.replace(/^[a-hA-H]\s*[\.\)]\s*/,"")));
+      }
+    }
+    if(correct<0||correct>=q.opts.length){
+      const idx=q.marks.map((m,i)=>m?i:-1).filter(i=>i>=0);
+      // all options marked = formatting not meaningful
+      if(idx.length>=1 && idx.length<q.opts.length) correct=idx[0];
+      else correct=-1;
+    }
+    return { q:q.q, opts:q.opts, correct };
+  });
+}
+async function parseDocx(file){
+  const zip = await JSZip.loadAsync(await file.arrayBuffer());
+  const xml = await zip.file("word/document.xml").async("string");
+  const doc = new DOMParser().parseFromString(xml,"application/xml");
+  const paras = [...doc.getElementsByTagNameNS(W,"p")].map(readParagraph);
+  return parseParagraphs(paras);
+}
+
+// ===== sets / import =====
+let sets = [];
+function loadSets(){ try{ sets = JSON.parse(store.get("quizSets")||"[]"); }catch(e){ sets=[]; } }
+function saveSets(){ store.set("quizSets", JSON.stringify(sets)); }
+function renderSets(){
+  const box=$("sets"); box.innerHTML="";
+  sets.forEach((s,i)=>{
+    const d=document.createElement("div"); d.className="set";
+    d.innerHTML=`<input type="checkbox" ${s.on!==false?"checked":""}><b></b><small>${s.qs.length} câu</small><button title="Xoá">✕</button>`;
+    d.querySelector("b").textContent=s.name;
+    d.querySelector("input").onchange=e=>{ s.on=e.target.checked; saveSets(); updateTotal(); };
+    d.querySelector("button").onclick=()=>{ sets.splice(i,1); saveSets(); renderSets(); };
+    box.appendChild(d);
+  });
+  $("opts").classList.toggle("hide", !sets.length);
+  updateTotal();
+}
+function activeQs(){ return sets.filter(s=>s.on!==false).flatMap(s=>s.qs); }
+function updateTotal(){
+  const n=activeQs().length; $("qTotal").textContent=`(tối đa ${n})`;
+  $("qCount").max=n; if(!$("qCount").value||+$("qCount").value>n) $("qCount").value=n;
+  $("start").disabled=n===0;
+}
+async function importFiles(files){
+  const warns=[];
+  for(const f of files){
+    if(!/\.docx$/i.test(f.name)){ warns.push(`${f.name}: chỉ hỗ trợ .docx`); continue; }
+    try{
+      const qs=await parseDocx(f);
+      if(!qs.length){ warns.push(`${f.name}: không tìm thấy câu hỏi nào (cần dạng "Câu 1: ..." và đáp án a. b. c. ...)`); continue; }
+      const noAns=qs.filter(q=>q.correct<0).length;
+      if(noAns) warns.push(`${f.name}: ${noAns}/${qs.length} câu không xác định được đáp án đúng (các câu này sẽ bị bỏ qua khi chơi).`);
+      sets=sets.filter(s=>s.name!==f.name); sets.push({name:f.name,qs,on:true});
+    }catch(e){ warns.push(`${f.name}: lỗi đọc file (${e.message})`); }
+  }
+  saveSets(); renderSets();
+  const w=$("importWarn"); w.classList.toggle("hide",!warns.length); w.innerHTML=warns.map(x=>"⚠ "+x.replace(/</g,"&lt;")).join("<br>");
+}
+$("drop").onclick=()=>$("file").click();
+$("file").onchange=e=>{ importFiles([...e.target.files]); e.target.value=""; };
+["dragover","dragenter"].forEach(ev=>$("drop").addEventListener(ev,e=>{e.preventDefault();$("drop").classList.add("over");}));
+["dragleave","drop"].forEach(ev=>$("drop").addEventListener(ev,e=>{e.preventDefault();$("drop").classList.remove("over");}));
+$("drop").addEventListener("drop",e=>importFiles([...e.dataTransfer.files]));
+
+function enterHome(){ loadSets(); renderSets(); show("home"); }
+
+// ===== game =====
+const SHAPES = [
+  '<svg viewBox="0 0 32 32"><path d="M16 3 30 27H2z"/></svg>',
+  '<svg viewBox="0 0 32 32"><path d="M16 1 31 16 16 31 1 16z"/></svg>',
+  '<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="14"/></svg>',
+  '<svg viewBox="0 0 32 32"><rect x="3" y="3" width="26" height="26"/></svg>',
+  '<svg viewBox="0 0 32 32"><path d="M16 2l12 9-5 16H9L4 11z"/></svg>'
+];
+const shuffle = a => { a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.random()*(i+1)|0; [a[i],a[j]]=[a[j],a[i]]; } return a; };
+let G=null, timerId=null;
+
+function startGame(pool){
+  let qs = pool.filter(q=>q.correct>=0);
+  if($("shQ").checked) qs=shuffle(qs);
+  const n=Math.max(1,Math.min(+$("qCount").value||qs.length, qs.length));
+  qs=qs.slice(0,n).map(q=>{
+    let items=q.opts.map((t,i)=>({t,ok:i===q.correct}));
+    if($("shA").checked) items=shuffle(items);
+    return {q:q.q,items,src:q};
+  });
+  G={qs,i:0,score:0,wrong:[],locked:false,limit:$("timerOn").checked?Math.max(5,+$("timerSec").value||30):0};
+  show("game"); showQ();
+}
+function showQ(){
+  const q=G.qs[G.i]; G.locked=false; clearInterval(timerId);
+  $("gProg").textContent=`${G.i+1} / ${G.qs.length}`;
+  $("gScore").textContent=`Đúng: ${G.score}`;
+  $("gQ").textContent=q.q;
+  $("gFb").className="fb hide"; $("next").classList.add("hide");
+  const box=$("gA"); box.innerHTML="";
+  q.items.forEach((it,i)=>{
+    const b=document.createElement("button"); b.className="ans c"+(i%5);
+    b.innerHTML=`${SHAPES[i%5]}<span></span><div class="mark"></div>`;
+    b.querySelector("span").textContent=it.t;
+    b.onclick=()=>answer(i);
+    box.appendChild(b);
+  });
+  const bar=$("gBar"), tm=$("gTimer");
+  if(G.limit){
+    bar.classList.remove("hide"); tm.classList.remove("hide");
+    let left=G.limit; tm.textContent="⏱ "+left;
+    bar.style.transition="none"; bar.style.transform="scaleX(1)"; void bar.offsetWidth;
+    bar.style.transition=`transform ${G.limit}s linear`; bar.style.transform="scaleX(0)";
+    timerId=setInterval(()=>{ left--; tm.textContent="⏱ "+Math.max(left,0); if(left<=0){ clearInterval(timerId); answer(-1); } },1000);
+  }else{ bar.classList.add("hide"); tm.classList.add("hide"); }
+}
+function answer(i){
+  if(G.locked) return; G.locked=true; clearInterval(timerId);
+  const q=G.qs[G.i]; const ok=i>=0&&q.items[i].ok;
+  if(ok) G.score++; else G.wrong.push({q,picked:i});
+  [...$("gA").children].forEach((b,k)=>{
+    b.disabled=true;
+    const it=q.items[k];
+    if(it.ok){ b.classList.add("right"); b.querySelector(".mark").textContent="✓"; }
+    else { b.classList.add("dim"); if(k===i) b.querySelector(".mark").textContent="✗"; }
+  });
+  $("gBar").style.transition="none";
+  $("gScore").textContent=`Đúng: ${G.score}`;
+  const fb=$("gFb"); fb.className="fb "+(ok?"ok":"bad");
+  fb.textContent = ok ? "Chính xác! ✓" : (i<0?"Hết giờ! ":"Sai rồi! ")+"Đáp án đúng: "+LETTERS[q.items.findIndex(x=>x.ok)]+". "+q.items.find(x=>x.ok).t;
+  $("next").classList.remove("hide");
+  $("next").textContent = G.i===G.qs.length-1 ? "Xem kết quả ▶" : "Tiếp theo ▶";
+}
+$("next").onclick=()=>{ if(G.i<G.qs.length-1){ G.i++; showQ(); } else finish(); };
+$("quit").onclick=()=>{ clearInterval(timerId); enterHome(); };
+document.addEventListener("keydown",e=>{
+  if($("game").classList.contains("hide")||!G) return;
+  if(e.key==="Enter"&&G.locked) $("next").click();
+  const k="1234567".indexOf(e.key); const l="abcde".indexOf(e.key.toLowerCase());
+  const idx=k>=0&&k<5?k:l;
+  if(idx>=0&&idx<G.qs[G.i].items.length) answer(idx);
+});
+function finish(){
+  show("result");
+  const n=G.qs.length;
+  $("rScore").textContent=`${G.score} / ${n}`;
+  $("rPct").textContent=Math.round(G.score/n*100)+"%";
+  const rev=$("rRev"); rev.innerHTML="";
+  G.wrong.forEach(w=>{
+    const d=document.createElement("div");
+    const correct=w.q.items.find(x=>x.ok).t;
+    const picked=w.picked>=0?w.q.items[w.picked].t:"(không trả lời)";
+    d.innerHTML=`<b></b><small class="r"></small><small class="g"></small>`;
+    d.querySelector("b").textContent=w.q.q;
+    d.querySelector(".r").textContent="✗ Bạn chọn: "+picked;
+    d.querySelector(".g").textContent="✓ Đúng: "+correct;
+    rev.appendChild(d);
+  });
+  if(!G.wrong.length) rev.innerHTML='<div style="text-align:center">🎉 Đúng hết!</div>';
+  $("retryWrong").classList.toggle("hide",!G.wrong.length);
+}
+$("start").onclick=()=>startGame(activeQs());
+$("again").onclick=()=>startGame(activeQs());
+$("retryWrong").onclick=()=>{ const pool=G.wrong.map(w=>w.q.src); const c=$("qCount").value; $("qCount").value=pool.length; startGame(pool); $("qCount").value=c; };
+$("toHome").onclick=enterHome;
+
+// boot
+if(sessionStorage.getItem("auth")===CRED_HASH) enterHome(); else show("login");
+</script>
+</body>
+</html>
