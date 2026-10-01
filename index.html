@@ -140,19 +140,21 @@ $("logout").onclick = ()=>{ sessionStorage.removeItem("auth"); show("login"); };
 // ===== docx parsing =====
 const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 const LETTERS = "ABCDEFGH";
-function runMarked(r){
-  const rPr = r.getElementsByTagNameNS(W,"rPr")[0]; if(!rPr) return false;
+function runTiers(r){
+  const t={b:false,h:false,c:false};
+  const rPr = r.getElementsByTagNameNS(W,"rPr")[0]; if(!rPr) return t;
   const on = (tag)=>{ const el = rPr.getElementsByTagNameNS(W,tag)[0]; if(!el) return false;
     const v = el.getAttributeNS(W,"val"); return !(v==="0"||v==="false"||v==="none"); };
-  if(on("b")||on("highlight")||on("u")) return true;
+  t.b = on("b");
+  t.h = on("highlight")||on("u");
   const shd = rPr.getElementsByTagNameNS(W,"shd")[0];
-  if(shd){ const f=(shd.getAttributeNS(W,"fill")||"").toLowerCase(); if(f && f!=="auto" && f!=="ffffff") return true; }
+  if(shd){ const f=(shd.getAttributeNS(W,"fill")||"").toLowerCase(); if(f && f!=="auto" && f!=="ffffff") t.h=true; }
   const col = rPr.getElementsByTagNameNS(W,"color")[0];
-  if(col){ const c=(col.getAttributeNS(W,"val")||"").toLowerCase(); if(c && c!=="auto" && c!=="000000" && c!=="ffffff") return true; }
-  return false;
+  if(col){ const c=(col.getAttributeNS(W,"val")||"").toLowerCase(); if(c && c!=="auto" && c!=="000000" && c!=="ffffff") t.c=c; }
+  return t;
 }
 function readParagraph(p){
-  let text="", markedChars=0, total=0;
+  let text="", total=0; const cnt={b:0,h:0}; const cols={};
   for(const r of p.getElementsByTagNameNS(W,"r")){
     let t="";
     for(const n of r.childNodes){
@@ -161,10 +163,12 @@ function readParagraph(p){
       else if(n.localName==="tab") t+=" ";
       else if(n.localName==="br") t+=" ";
     }
-    const nonSp = t.replace(/\s/g,"").length;
-    text+=t; total+=nonSp; if(nonSp && runMarked(r)) markedChars+=nonSp;
+    const k = t.replace(/\s/g,"").length; text+=t; total+=k; if(!k) continue;
+    const m=runTiers(r); if(m.b) cnt.b+=k; if(m.h) cnt.h+=k; cols[m.c||"-"]=(cols[m.c||"-"]||0)+k;
   }
-  return { text: text.replace(/\s+/g," ").trim(), marked: total>0 && markedChars/total>0.6 };
+  // colour of body text (skip the "a." prefix run noise by taking dominant colour)
+  const dom = Object.keys(cols).sort((x,y)=>cols[y]-cols[x])[0];
+  return { text: text.replace(/\s+/g," ").trim(), tiers:{ b: total>0&&cnt.b/total>0.6, h: total>0&&cnt.h/total>0.6, c: dom&&dom!=="-"?dom:"" } };
 }
 const reQ   = /^(?:câu|cau)\s*(?:hỏi\s*)?\d+\s*[:.)\-–]?\s*/i;
 const reOpt = /^\(?([a-hA-H])\s*[\.\)]\s*(.*)$/;
@@ -174,19 +178,18 @@ const norm = s => s.toLowerCase().replace(/[\s\.\,;:]+/g," ").trim();
 function parseParagraphs(paras){
   const qs=[]; let cur=null;
   const push=()=>{ if(cur&&cur.opts.length>=2&&cur.q) qs.push(cur); cur=null; };
-  for(const {text,marked} of paras){
+  for(const {text,tiers} of paras){
     if(!text) continue;
     let m;
     if(reQ.test(text)){ push(); cur={q:text.replace(reQ,""),opts:[],marks:[],ans:null}; continue; }
     if(!cur) continue;
     if((m=text.match(reAns)) && cur.opts.length){ cur.ans = m[1].trim(); continue; }
     if(cur.opts.length===0 && !cur.q){ cur.q = text; continue; }
-    if((m=text.match(reOpt))){ cur.opts.push(m[2].trim()); cur.marks.push(marked); cur._lastLetter=m[1]; continue; }
+    if((m=text.match(reOpt))){ cur.opts.push(m[2].trim()); cur.marks.push(tiers); continue; }
     // line without letter
     if(!cur.q){ cur.q=text; continue; }
-    if(cur.opts.length===0 && /[:?]\s*$/.test(cur.q)===false && !marked && text.length>0 && cur.q.length<0){ }
-    // lost-letter option (e.g. auto-numbered) vs. continuation of the question
-    cur.opts.push(text); cur.marks.push(marked);
+        // lost-letter option (e.g. auto-numbered) vs. continuation of the question
+    cur.opts.push(text); cur.marks.push(tiers);
   }
   push();
   return qs.map(q=>{
@@ -199,10 +202,16 @@ function parseParagraphs(paras){
       }
     }
     if(correct<0||correct>=q.opts.length){
-      const idx=q.marks.map((m,i)=>m?i:-1).filter(i=>i>=0);
-      // all options marked = formatting not meaningful
-      if(idx.length>=1 && idx.length<q.opts.length) correct=idx[0];
-      else correct=-1;
+      // first tier (bold > highlight/underline/shading > colour) that singles out some but not all options
+      const n=q.opts.length;
+      for(const tier of ["b","h","c"]){
+        let idx;
+        if(tier==="c"){
+          const cs=q.marks.map(m=>m.c); const freq={}; cs.forEach(c=>freq[c]=(freq[c]||0)+1);
+          idx=cs.map((c,i)=>c&&freq[c]===1?i:-1).filter(i=>i>=0);
+        } else idx=q.marks.map((m,i)=>m[tier]?i:-1).filter(i=>i>=0);
+        if(idx.length>=1 && idx.length<n){ correct=idx[0]; break; }
+      }
     }
     return { q:q.q, opts:q.opts, correct };
   });
@@ -235,7 +244,7 @@ function renderSets(){
 function activeQs(){ return sets.filter(s=>s.on!==false).flatMap(s=>s.qs); }
 function updateTotal(){
   const n=activeQs().length; $("qTotal").textContent=`(tối đa ${n})`;
-  $("qCount").max=n; if(!$("qCount").value||+$("qCount").value>n) $("qCount").value=n;
+  $("qCount").max=n; if(!(+$("qCount").value>=1)||+$("qCount").value>n) $("qCount").value=n;
   $("start").disabled=n===0;
 }
 async function importFiles(files){
